@@ -1,0 +1,30 @@
+{
+  "name": "cordova-plugin-multipartqrcodescanner",
+  "version": "1.0.0",
+  "description": "Cordova plugin for Multi-part QR Code Scanner",
+  "main": "www/MulipartQRCodeScanner.js",
+  "cordova": {
+    "id": "cordova-plugin-multipartqrcodescanner",
+    "platforms": [
+      "android"
+    ]
+  },
+  "keywords": [
+    "cordova",
+    "qrcode",
+    "multipart-qrcode-scanner",
+    "qrcode-scanner"
+  ],
+  "author": "Hussain KMR Behestee <behestee@gmail.com>",
+  "contributors": [
+    {
+      "name": "Arif Hossain",
+      "email": "arif@gmail.com"
+    },
+    {
+      "name": "Emdad Hossain",
+      "email": "emdad@gmail.com"
+    }
+  ],
+  "license": "Apache-2.0"
+}

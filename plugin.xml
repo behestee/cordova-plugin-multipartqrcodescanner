@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="cordova-plugin-multipartqrcodescanner"
+        xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        version="1.0.1">
+    <name>MulipartQRCodeScanner</name>
+    <description>Cordova plugin for Multi-part QR Code Scanning.</description>
+    <repo>https://github.com/behestee/cordova-plugin-multipartqrcodescanner</repo>
+
+    <js-module name="MulipartQRCodeScanner" src="www/MulipartQRCodeScanner.js">
+        <clobbers target="cordova.plugins.mulipartQRCodeScanner"/>
+    </js-module>
+
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="MulipartQRCodeScanner">
+                <param name="android-package"
+                       value="com.behestee.plugins.mulipartqrcodescanner.MulipartQRCodeScanner"/>
+            </feature>
+        </config-file>
+
+
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <activity android:name="com.behestee.mulipartqrcodescanner.ContinuousCaptureActivity"
+                      android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+                      android:windowSoftInputMode="stateAlwaysHidden" />
+        </config-file>
+
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.CAMERA"/>
+            <uses-permission android:name="android.permission.FLASHLIGHT"/>
+            <uses-feature android:name="android.hardware.camera" android:required="true"/>
+        </config-file>
+
+
+        <source-file src="src/android/com/behestee/plugins/mulipartqrcodescanner/MulipartQRCodeScanner.java"
+                     target-dir="src/com/behestee/plugins/mulipartqrcodescanner"/>
+
+
+        <framework src="src/android/multipartqrcodescanner.gradle" custom="true" type="gradleReference"/>
+        <resource-file src="src/android/multipartqrcodescanner-release.aar" target="libs/multipartqrcodescanner.aar"/>
+        <dependency id="cordova-plugin-compat" version="^1.0.0"/>
+
+    </platform>
+</plugin>
