@@ -1,4 +1,4 @@
-package com.behestee.plugins.mulipartqrcodescanner;
+package com.behestee.mulipartqrcodescanner;
 
 import org.json.JSONArray;
 import org.json.JSONException;
