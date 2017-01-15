@@ -43,7 +43,7 @@
 
     <platform name="ios">
     <config-file target="config.xml" parent="/*">
-      <feature name="BarcodeScanner">
+      <feature name="MulipartQRCodeScanner">
         <param name="ios-package" value="CDVBarcodeScanner"/>
       </feature>
     </config-file>
