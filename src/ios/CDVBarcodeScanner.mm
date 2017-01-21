@@ -105,7 +105,9 @@
 // view controller for the ui
 //------------------------------------------------------------------------------
 @interface CDVbcsViewController : UIViewController <CDVBarcodeScannerOrientationDelegate> {
-    UILabel *myLabel;
+    UILabel *scanStatusTitle;
+    
+    UIView *scanStausContainer;
 }
 @property (nonatomic, retain) CDVbcsProcessor*  processor;
 @property (nonatomic, retain) NSString*        alternateXib;
@@ -414,12 +416,17 @@ parentViewController:(UIViewController*)parentViewController
         [self barcodeScanDone:^{
             [self.plugin returnSuccess:text format:format cancelled:FALSE flipped:FALSE callback:self.callback];
         }];
-        AudioServicesPlaySystemSound(_soundFileObject);
+//        AudioServicesPlaySystemSound(_soundFileObject);
     });
 }
 
 //--------------------------------------------------------------------------
 - (void)barcodeScanFailed:(NSString*)message {
+    
+    // Clear array for future
+    [qrCodeArray removeAllObjects];
+    total = 0;
+    
     [self barcodeScanDone:^{
         [self.plugin returnError:message callback:self.callback];
     }];
@@ -427,6 +434,11 @@ parentViewController:(UIViewController*)parentViewController
 
 //--------------------------------------------------------------------------
 - (void)barcodeScanCancelled {
+    
+    // Clear array for future
+    [qrCodeArray removeAllObjects];
+    total = 0;
+    
     [self barcodeScanDone:^{
         [self.plugin returnSuccess:@"" format:@"" cancelled:TRUE flipped:self.isFlipped callback:self.callback];
     }];
@@ -609,6 +621,18 @@ parentViewController:(UIViewController*)parentViewController
                 // If not first time and
                 if(total != 0 && total != lastTotal){
                     error = true;
+                    
+                    
+                    // Sending notification to the main thread when different QR code found
+                    dispatch_sync(dispatch_get_main_queue(), ^{
+                        
+                        // Play sound when a new item scanned
+                        AudioServicesPlaySystemSound(_soundFileObject);
+                        
+                        // Sending notification to show alert
+                        [[NSNotificationCenter defaultCenter] postNotificationName:@"WrongQRCodeFound" object:Nil];
+
+                    });
                 }
                 
                 // Valid code has found and processed here
@@ -620,24 +644,34 @@ parentViewController:(UIViewController*)parentViewController
                         // Get current index from scanned code
                         current = [self convertHextDecimal:hexDataArray[1]];
                         
-                        NSString *index  = [NSString stringWithFormat:@"%lu", current];
+                        NSString *index  = [NSString stringWithFormat:@"%lu", (unsigned long)current];
                     
                         // Check and append as new scanned code in the array
                         if([qrCodeArray objectForKey:index] == nil){
-                            [qrCodeArray setObject:code.stringValue forKey:[NSString stringWithFormat:@"%lu",(current)]];
-                            // Play sound when a new item scanned
-                            AudioServicesPlaySystemSound(_soundFileObject);
+                            
+
+                            // Sending notification to the main thread
+                            dispatch_sync(dispatch_get_main_queue(), ^{
+                                
+                                // Play sound when a new item scanned
+                                AudioServicesPlaySystemSound(_soundFileObject);
                             
                             
+                                [qrCodeArray setObject:code.stringValue forKey:[NSString stringWithFormat:@"%lu",(unsigned long)(current)]];
+            
                             
-                            // Creating Scan details to send with NSNotification to show titles
-                            NSMutableDictionary *scanDetails = [NSMutableDictionary dictionary];
+                                // Creating Scan details to send with NSNotification to show titles
+                                NSMutableDictionary *scanDetails = [NSMutableDictionary dictionary];
                             
-                            [scanDetails setObject:qrCodeArray forKey:@"items"];
-                            [scanDetails setObject:[NSString stringWithFormat:@"%lu", total + 1] forKey:@"total"];
+                                [scanDetails setObject:qrCodeArray forKey:@"items"];
+                                [scanDetails setObject:[NSString stringWithFormat:@"%lu", (unsigned long)(total + 1)] forKey:@"total"];
                             
-                            // Notification triggering
-                            [[NSNotificationCenter defaultCenter] postNotificationName:@"QRCodeFound" object:(NSMutableDictionary *)scanDetails];
+                                // Notification triggering
+                                [[NSNotificationCenter defaultCenter] postNotificationName:@"QRCodeFound" object:(NSMutableDictionary *)scanDetails];
+                            
+                            
+                            });
+                                
                             
                         }
                     }
@@ -649,7 +683,7 @@ parentViewController:(UIViewController*)parentViewController
                     // Creating appending all scanned code serialled by index
                     for (NSUInteger i = 0; i < qrCodeArray.count; i++)
                     {
-                        NSString *index  = [NSString stringWithFormat:@"%lu", i];
+                        NSString *index  = [NSString stringWithFormat:@"%lu", (unsigned long)i];
                         NSString *str = [qrCodeArray objectForKey:index];
                         resultCode = [NSString stringWithFormat:@"%@%@", resultCode, str];
                     }
@@ -687,14 +721,6 @@ parentViewController:(UIViewController*)parentViewController
 }
 
 //-----behestee
-
-
-
-- (void)drawRect:(CGRect)rect {
-    [self drawText:0 yPosition:0 canvasWidth:200 canvasHeight:150];
-}
-
-
 
 -(NSMutableArray *) ceateDecimalArrayWithHexString:(NSString *)theData
 {
@@ -1008,19 +1034,91 @@ parentViewController:(UIViewController*)parentViewController
                                                  name:@"QRCodeFound"
                                                object:nil];
     
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(wrongQrCodeAlert)
+                                                 name:@"WrongQRCodeFound"
+                                               object:nil];
+    
     return self;
 }
 
+//-------behestee
+
+-(void)wrongQrCodeAlert{
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Error" message:@"Wrong QR Code!" preferredStyle:UIAlertControllerStyleAlert];
+    
+    UIAlertAction* ok = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
+    [alertController addAction:ok];
+    
+    [self presentViewController:alertController animated:YES completion:nil];
+}
+
 -(void)updateScanStatus:(id)scanDetails{
-    NSLog(@"%@", scanDetails);
+    
     
     NSString * total = [[scanDetails object] objectForKey:@"total"];
-    NSMutableArray *qrCodeArray = [[scanDetails object] objectForKey:@"items"];
+    NSMutableDictionary *qrCodeArray = [[scanDetails object] objectForKey:@"items"];
     
-    [myLabel setText:[NSString stringWithFormat:@"%lu/%@", qrCodeArray.count, total]];
+    [scanStatusTitle setText:[NSString stringWithFormat:@"%lu/%@", qrCodeArray.count, total]];
+    [scanStatusTitle setTextAlignment:NSTextAlignmentCenter];
+    [scanStatusTitle setBackgroundColor:[UIColor blackColor]];
+    [scanStatusTitle setTextColor:[UIColor whiteColor]];
     
-    NSLog(@"%lu/%@", (unsigned long)qrCodeArray.count, total);
+    [scanStausContainer setBackgroundColor:[UIColor clearColor]];
+    
+    [self removeAllSubViews:scanStausContainer];
+    [self addLabelsWith:qrCodeArray ofTotal:[total intValue]];
+    
 }
+
+-(void)removeAllSubViews:(UIView *) views{
+    for (UIView *view in [views subviews]) {
+        [view removeFromSuperview];
+    }
+}
+
+-(void)addLabelsWith:(NSMutableDictionary *) items ofTotal:(int) total{
+    
+    CGRect bounds = self.view.bounds;
+    CGFloat rootViewWidth  = CGRectGetWidth(bounds);
+    UIColor *desireColor = [UIColor grayColor];
+    
+    int width = (rootViewWidth / 16);
+    
+    int startPosition  = ((rootViewWidth - (width * total)) * 0.5);
+    
+    for (int i = 0; i < total; i++) {
+        // codes here
+        UILabel * newlabel = [[UILabel alloc] initWithFrame:CGRectMake(startPosition + (i * width), 5, (width - 2), 20)];
+        
+        NSString *index  = [NSString stringWithFormat:@"%lu", (unsigned long)i];
+        
+        // Check index is empty
+        if([items objectForKey:index] == nil){
+            desireColor = [UIColor grayColor];
+        }
+        else {
+            desireColor = [UIColor blackColor];
+        }
+        
+        [newlabel setBackgroundColor:desireColor];
+        [newlabel setTextColor:[UIColor whiteColor]];
+        [newlabel setTextAlignment:NSTextAlignmentCenter];
+        [newlabel setText:[NSString stringWithFormat:@"%i",(i+1)]];
+        
+        
+        [scanStausContainer addSubview:newlabel];
+        [newlabel release];
+    }
+    
+    [desireColor release];
+    
+    
+    
+}
+
+
+//------behestee
 
 //--------------------------------------------------------------------------
 - (void)dealloc {
@@ -1030,7 +1128,8 @@ parentViewController:(UIViewController*)parentViewController
     self.alternateXib = nil;
     self.overlayView = nil;
     
-    myLabel = nil;
+    scanStatusTitle = nil;
+    scanStausContainer = nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     [super dealloc];
@@ -1227,15 +1326,17 @@ parentViewController:(UIViewController*)parentViewController
     [overlayView addSubview: reticleView];
     
     
-    
-    
     //--------behestee
-    myLabel = [[UILabel alloc] initWithFrame:CGRectMake(0.5 * (rootViewWidth  - 20), 50, 40, 20)];
-//    [myLabel initWithFrame:CGRectMake(10, 50, 200, 40)];
-    [myLabel setBackgroundColor:[UIColor clearColor]];
-//    [myLabel setText:@""];
+    scanStatusTitle = [[UILabel alloc] initWithFrame:CGRectMake(0.5 * (rootViewWidth  - 40), 50, 40, 20)];
+    [scanStatusTitle setBackgroundColor:[UIColor clearColor]];
+//    [scanStatusTitle setText:@""];
     
-    [overlayView addSubview:myLabel];
+    scanStausContainer = [[UIView alloc] initWithFrame:CGRectMake(0, 75, rootViewWidth, 30)];
+    [scanStatusTitle setBackgroundColor:[UIColor clearColor]];
+    
+    
+    [overlayView addSubview:scanStatusTitle];
+    [overlayView addSubview:scanStausContainer];
     
     //---------behestee
 
